@@ -1,5 +1,5 @@
 import { Navigation } from "@/components/navigation"
-import { WeatherWidget } from "@/components/dashboard/weather-widget"
+import { ReliableWeatherWidget } from "@/components/dashboard/reliable-weather-widget"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -49,7 +49,7 @@ export default function WeatherPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Weather Widget */}
           <div className="lg:col-span-2">
-            <WeatherWidget />
+            <ReliableWeatherWidget />
           </div>
 
           {/* Weather Alerts & Tips */}

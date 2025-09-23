@@ -3,138 +3,194 @@
 import { useState } from "react"
 import { Navigation } from "@/components/navigation"
 import { ImageUpload } from "@/components/scanner/image-upload"
-import { ScanResults } from "@/components/scanner/scan-results"
+import { ScanResults } from "@/components/scanner/scan-results-new"
 import { ScanHistory } from "@/components/scanner/scan-history"
 import { Footer } from "@/components/footer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Scan, Zap, Shield, TrendingUp } from "lucide-react"
+import { Scan, Zap, Shield, TrendingUp, Brain, Microscope } from "lucide-react"
+import { DiseaseDetection } from "@/lib/disease-detection"
 
 export default function ScannerPage() {
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showResults, setShowResults] = useState(false)
+  const [detection, setDetection] = useState<DiseaseDetection | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [processingTime, setProcessingTime] = useState<number | null>(null)
 
   const handleImageSelect = (file: File) => {
     setSelectedImage(file)
     setShowResults(false)
+    setDetection(null)
+    setError(null)
   }
 
   const handleAnalyze = async () => {
     if (!selectedImage) return
 
     setIsAnalyzing(true)
-    // Simulate AI analysis
-    await new Promise((resolve) => setTimeout(resolve, 3000))
-    setIsAnalyzing(false)
-    setShowResults(true)
+    setError(null)
+    const startTime = Date.now()
+
+    try {
+      const formData = new FormData()
+      formData.append('image', selectedImage)
+
+      const response = await fetch('/api/disease-detection', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to analyze image')
+      }
+
+      setDetection(data.detection)
+      setProcessingTime(Date.now() - startTime)
+      setShowResults(true)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyze image')
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const handleNewScan = () => {
+    setShowResults(false)
+    setDetection(null)
+    setSelectedImage(null)
+    setError(null)
+    setProcessingTime(null)
   }
 
   const features = [
     {
-      icon: Zap,
+      icon: Brain,
       title: "AI-Powered Detection",
-      description: "Advanced machine learning algorithms trained on thousands of plant diseases",
+      description: "Advanced deep learning algorithms trained on thousands of plant disease images",
     },
     {
-      icon: Shield,
-      title: "95% Accuracy",
-      description: "Highly accurate disease identification with confidence scoring",
+      icon: Microscope,
+      title: "95%+ Accuracy",
+      description: "Highly accurate disease identification with confidence scoring and detailed analysis",
     },
     {
       icon: TrendingUp,
       title: "Treatment Recommendations",
-      description: "Detailed treatment plans and prevention strategies for each disease",
+      description: "Comprehensive treatment plans with organic and chemical options, cost analysis",
     },
   ]
+
+  // Show results if we have detection data
+  if (showResults && detection) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navigation />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <ScanResults 
+            detection={detection} 
+            onNewScan={handleNewScan}
+            processingTime={processingTime || undefined}
+          />
+        </div>
+        <Footer />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Plant Disease Scanner</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
+            <Scan className="h-8 w-8 text-primary" />
+            AI Plant Disease Scanner
+          </h1>
           <p className="text-muted-foreground">
-            Upload a photo of your plant to get instant AI-powered disease detection and treatment recommendations
+            Upload an image of your plant to get instant AI-powered disease detection and treatment recommendations
           </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Scanner */}
+          {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            {!showResults ? (
-              <>
-                <ImageUpload
-                  onImageSelect={handleImageSelect}
-                  onAnalyze={handleAnalyze}
-                  isAnalyzing={isAnalyzing}
-                  selectedImage={selectedImage}
-                />
+            <ImageUpload
+              onImageSelect={handleImageSelect}
+              onAnalyze={handleAnalyze}
+              isAnalyzing={isAnalyzing}
+              selectedImage={selectedImage}
+              error={error}
+            />
 
-                {/* Features */}
+            {/* Features */}
+            <Card>
+              <CardHeader>
+                <CardTitle>How It Works</CardTitle>
+              </CardHeader>
+              <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {features.map((feature, index) => {
+                  {features.map((feature) => {
                     const Icon = feature.icon
                     return (
-                      <Card key={index}>
-                        <CardContent className="p-6 text-center">
-                          <div className="bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Icon className="h-6 w-6 text-primary" />
-                          </div>
-                          <h3 className="font-semibold text-foreground mb-2">{feature.title}</h3>
-                          <p className="text-sm text-muted-foreground">{feature.description}</p>
-                        </CardContent>
-                      </Card>
+                      <div key={feature.title} className="text-center">
+                        <div className="bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                          <Icon className="h-6 w-6 text-primary" />
+                        </div>
+                        <h3 className="font-semibold text-foreground mb-2">{feature.title}</h3>
+                        <p className="text-sm text-muted-foreground">{feature.description}</p>
+                      </div>
                     )
                   })}
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* How it Works */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle>How Plant Disease Scanner Works</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                      <div className="text-center">
-                        <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-3 text-sm font-bold">
-                          1
-                        </div>
-                        <h4 className="font-medium text-foreground mb-2">Upload Image</h4>
-                        <p className="text-sm text-muted-foreground">Take a clear photo of the affected plant part</p>
-                      </div>
-                      <div className="text-center">
-                        <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-3 text-sm font-bold">
-                          2
-                        </div>
-                        <h4 className="font-medium text-foreground mb-2">AI Analysis</h4>
-                        <p className="text-sm text-muted-foreground">Our AI analyzes the image for disease patterns</p>
-                      </div>
-                      <div className="text-center">
-                        <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-3 text-sm font-bold">
-                          3
-                        </div>
-                        <h4 className="font-medium text-foreground mb-2">Get Results</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Receive detailed disease identification and confidence score
-                        </p>
-                      </div>
-                      <div className="text-center">
-                        <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-3 text-sm font-bold">
-                          4
-                        </div>
-                        <h4 className="font-medium text-foreground mb-2">Take Action</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Follow treatment recommendations to save your crop
-                        </p>
-                      </div>
+            {/* Process Steps */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Detection Process</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="text-center">
+                    <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-3 text-sm font-bold">
+                      1
                     </div>
-                  </CardContent>
-                </Card>
-              </>
-            ) : (
-              <ScanResults />
-            )}
+                    <h4 className="font-medium text-foreground mb-2">Upload Image</h4>
+                    <p className="text-sm text-muted-foreground">Take a clear photo of the affected plant part</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-3 text-sm font-bold">
+                      2
+                    </div>
+                    <h4 className="font-medium text-foreground mb-2">AI Analysis</h4>
+                    <p className="text-sm text-muted-foreground">Our AI analyzes the image for disease patterns</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-3 text-sm font-bold">
+                      3
+                    </div>
+                    <h4 className="font-medium text-foreground mb-2">Get Results</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Receive detailed disease identification and confidence score
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <div className="bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center mx-auto mb-3 text-sm font-bold">
+                      4
+                    </div>
+                    <h4 className="font-medium text-foreground mb-2">Take Action</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Follow treatment recommendations to save your crop
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           {/* Sidebar */}

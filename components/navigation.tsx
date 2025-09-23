@@ -3,18 +3,21 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { LanguageSelector } from "@/components/language-selector"
 import { Menu, X, Leaf, Scan, CloudSun, TrendingUp, Users, Calculator } from "lucide-react"
+import { useLanguage } from "@/contexts/LanguageContext"
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
+  const { t } = useLanguage()
 
   const navItems = [
     { href: "/", label: "Home", icon: Leaf },
-    { href: "/scanner", label: "Disease Scanner", icon: Scan },
-    { href: "/weather", label: "Weather", icon: CloudSun },
-    { href: "/mandi", label: "Mandi Prices", icon: TrendingUp },
-    { href: "/consultation", label: "Expert Help", icon: Users },
-    { href: "/yield-prediction", label: "Yield Predictor", icon: Calculator },
+    { href: "/scanner", label: t('nav.scanner'), icon: Scan },
+    { href: "/weather", label: t('nav.weather'), icon: CloudSun },
+    { href: "/mandi", label: t('nav.mandi'), icon: TrendingUp },
+    { href: "/consultation", label: t('nav.consultation'), icon: Users },
+    { href: "/yield-prediction", label: t('nav.yield'), icon: Calculator },
   ]
 
   return (
@@ -28,7 +31,7 @@ export function Navigation() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-6">
             {navItems.map((item) => {
               const Icon = item.icon
               return (
@@ -42,6 +45,7 @@ export function Navigation() {
                 </Link>
               )
             })}
+            <LanguageSelector />
             <Button asChild>
               <Link href="/auth/sign-in">Sign In</Link>
             </Button>

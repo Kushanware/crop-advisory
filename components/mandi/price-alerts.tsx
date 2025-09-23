@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Bell, Plus, Trash2, Edit, CheckCircle } from "lucide-react"
+import { Bell, Plus, Trash2, Edit, CheckCircle, RefreshCw } from "lucide-react"
+import { getMandiPrices, getCropPrices, getAvailableStates } from "@/lib/mandi-api"
 
 interface PriceAlert {
   id: string
@@ -21,42 +22,12 @@ interface PriceAlert {
   createdAt: string
 }
 
-const mockAlerts: PriceAlert[] = [
-  {
-    id: "1",
-    crop: "Wheat",
-    market: "Ludhiana",
-    targetPrice: 2200,
-    condition: "above",
-    currentPrice: 2150,
-    isActive: true,
-    createdAt: "2024-01-10",
-  },
-  {
-    id: "2",
-    crop: "Rice",
-    market: "Karnal",
-    targetPrice: 4000,
-    condition: "below",
-    currentPrice: 4200,
-    isActive: true,
-    createdAt: "2024-01-12",
-  },
-  {
-    id: "3",
-    crop: "Cotton",
-    market: "Rajkot",
-    targetPrice: 7000,
-    condition: "above",
-    currentPrice: 6800,
-    isActive: false,
-    createdAt: "2024-01-08",
-  },
-]
-
 export function PriceAlerts() {
-  const [alerts, setAlerts] = useState<PriceAlert[]>(mockAlerts)
+  const [alerts, setAlerts] = useState<PriceAlert[]>([])
   const [showAddForm, setShowAddForm] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [availableCrops, setAvailableCrops] = useState<string[]>([])
+  const [availableMarkets, setAvailableMarkets] = useState<string[]>([])
   const [newAlert, setNewAlert] = useState({
     crop: "",
     market: "",
@@ -64,21 +35,71 @@ export function PriceAlerts() {
     condition: "above" as "above" | "below",
   })
 
-  const handleAddAlert = () => {
+  const fetchRealPrices = async () => {
+    try {
+      const mandiData = await getMandiPrices()
+      
+      // Get unique crops and markets from real data
+      const crops = [...new Set(mandiData.data.map(price => price.crop))].sort()
+      const markets = [...new Set(mandiData.data.map(price => price.market))].sort()
+      
+      setAvailableCrops(crops)
+      setAvailableMarkets(markets)
+
+      // Update current prices for existing alerts
+      setAlerts(prevAlerts => 
+        prevAlerts.map(alert => {
+          // Find current price for this crop and market
+          const currentData = mandiData.data.find(price => 
+            price.crop.toLowerCase().includes(alert.crop.toLowerCase()) &&
+            price.market.toLowerCase().includes(alert.market.toLowerCase())
+          )
+          
+          return {
+            ...alert,
+            currentPrice: currentData ? currentData.currentPrice : alert.currentPrice
+          }
+        })
+      )
+    } catch (error) {
+      console.error('Error fetching real prices:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchRealPrices()
+    // Update prices every 5 minutes
+    const interval = setInterval(fetchRealPrices, 5 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleAddAlert = async () => {
     if (newAlert.crop && newAlert.market && newAlert.targetPrice) {
-      const alert: PriceAlert = {
-        id: Date.now().toString(),
-        crop: newAlert.crop,
-        market: newAlert.market,
-        targetPrice: Number.parseFloat(newAlert.targetPrice),
-        condition: newAlert.condition,
-        currentPrice: 2000, // Mock current price
-        isActive: true,
-        createdAt: new Date().toISOString().split("T")[0],
+      try {
+        // Get current price from real data
+        const cropPrices = await getCropPrices(newAlert.crop)
+        const marketPrice = cropPrices.find(price => 
+          price.market.toLowerCase().includes(newAlert.market.toLowerCase())
+        )
+
+        const alert: PriceAlert = {
+          id: Date.now().toString(),
+          crop: newAlert.crop,
+          market: newAlert.market,
+          targetPrice: Number.parseFloat(newAlert.targetPrice),
+          condition: newAlert.condition,
+          currentPrice: marketPrice ? marketPrice.currentPrice : 0,
+          isActive: true,
+          createdAt: new Date().toISOString().split("T")[0],
+        }
+        setAlerts([...alerts, alert])
+        setNewAlert({ crop: "", market: "", targetPrice: "", condition: "above" })
+        setShowAddForm(false)
+      } catch (error) {
+        console.error('Error adding alert:', error)
       }
-      setAlerts([...alerts, alert])
-      setNewAlert({ crop: "", market: "", targetPrice: "", condition: "above" })
-      setShowAddForm(false)
     }
   }
 
@@ -108,12 +129,22 @@ export function PriceAlerts() {
             <Bell className="h-5 w-5 text-primary" />
             Price Alerts
           </div>
-          <Button onClick={() => setShowAddForm(!showAddForm)} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            Add Alert
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={fetchRealPrices}
+              variant="outline"
+              size="sm"
+              disabled={loading}
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button onClick={() => setShowAddForm(!showAddForm)} size="sm">
+              <Plus className="h-4 w-4 mr-1" />
+              Add Alert
+            </Button>
+          </div>
         </CardTitle>
-        <p className="text-sm text-muted-foreground">Get notified when prices reach your target levels</p>
+        <p className="text-sm text-muted-foreground">Get notified when prices reach your target levels (based on real market data)</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Add Alert Form */}
@@ -130,11 +161,9 @@ export function PriceAlerts() {
                         <SelectValue placeholder="Select crop" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Wheat">Wheat</SelectItem>
-                        <SelectItem value="Rice">Rice</SelectItem>
-                        <SelectItem value="Cotton">Cotton</SelectItem>
-                        <SelectItem value="Sugarcane">Sugarcane</SelectItem>
-                        <SelectItem value="Maize">Maize</SelectItem>
+                        {availableCrops.map((crop) => (
+                          <SelectItem key={crop} value={crop}>{crop}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -148,11 +177,9 @@ export function PriceAlerts() {
                         <SelectValue placeholder="Select market" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Ludhiana">Ludhiana</SelectItem>
-                        <SelectItem value="Karnal">Karnal</SelectItem>
-                        <SelectItem value="Rajkot">Rajkot</SelectItem>
-                        <SelectItem value="Muzaffarnagar">Muzaffarnagar</SelectItem>
-                        <SelectItem value="Davangere">Davangere</SelectItem>
+                        {availableMarkets.map((market) => (
+                          <SelectItem key={market} value={market}>{market}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -172,7 +199,7 @@ export function PriceAlerts() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="targetPrice">Target Price (₹)</Label>
+                    <Label htmlFor="targetPrice">Target Price (₹/quintal)</Label>
                     <Input
                       id="targetPrice"
                       type="number"
@@ -183,7 +210,7 @@ export function PriceAlerts() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button onClick={handleAddAlert} size="sm">
+                  <Button onClick={handleAddAlert} size="sm" disabled={loading}>
                     Create Alert
                   </Button>
                   <Button onClick={() => setShowAddForm(false)} variant="outline" size="sm">
@@ -193,6 +220,13 @@ export function PriceAlerts() {
               </div>
             </AlertDescription>
           </Alert>
+        )}
+
+        {/* Loading State */}
+        {loading && alerts.length === 0 && (
+          <div className="text-center py-8">
+            <div className="text-muted-foreground">Loading real market data...</div>
+          </div>
         )}
 
         {/* Active Alerts */}
@@ -230,10 +264,10 @@ export function PriceAlerts() {
                 </div>
                 <div className="text-sm text-muted-foreground">
                   Alert when price goes <span className="font-medium">{alert.condition}</span>{" "}
-                  <span className="font-medium">₹{alert.targetPrice}</span>
+                  <span className="font-medium">₹{alert.targetPrice}/quintal</span>
                 </div>
                 <div className="text-sm text-muted-foreground">
-                  Current price: <span className="font-medium">₹{alert.currentPrice}</span> • Created:{" "}
+                  Current price: <span className="font-medium">₹{alert.currentPrice || 'Loading...'}/quintal</span> • Created:{" "}
                   {new Date(alert.createdAt).toLocaleDateString()}
                 </div>
               </div>
@@ -241,11 +275,11 @@ export function PriceAlerts() {
           })}
         </div>
 
-        {alerts.length === 0 && (
+        {alerts.length === 0 && !loading && (
           <div className="text-center py-8">
             <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">No price alerts set</h3>
-            <p className="text-muted-foreground">Create your first alert to get notified about price changes</p>
+            <p className="text-muted-foreground">Create your first alert to get notified about real price changes</p>
           </div>
         )}
       </CardContent>

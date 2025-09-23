@@ -1,14 +1,19 @@
+"use client"
+
 import { Navigation } from "@/components/navigation"
-import { WeatherWidget } from "@/components/dashboard/weather-widget"
+import { ReliableWeatherWidget } from "@/components/dashboard/reliable-weather-widget"
 import { FarmOverview } from "@/components/dashboard/farm-overview"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { MarketSummary } from "@/components/dashboard/market-summary"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Bell, User } from "lucide-react"
+import { useLanguage } from "@/contexts/LanguageContext"
 import Link from "next/link"
 
 export default function DashboardPage() {
+  const { t } = useLanguage()
+
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -18,18 +23,18 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Good morning, Rajesh!</h1>
-              <p className="text-muted-foreground">Here's what's happening on your farm today</p>
+              <h1 className="text-2xl font-bold text-foreground">{t('dashboard.greeting')}, Rajesh!</h1>
+              <p className="text-muted-foreground">{t('dashboard.subtitle')}</p>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm">
                 <Bell className="h-4 w-4 mr-2" />
-                Alerts
+                {t('dashboard.alerts')}
               </Button>
               <Button variant="outline" size="sm" asChild>
                 <Link href="/profile">
                   <User className="h-4 w-4 mr-2" />
-                  Profile
+                  {t('dashboard.profile')}
                 </Link>
               </Button>
             </div>
@@ -48,7 +53,7 @@ export default function DashboardPage() {
 
           {/* Right Column */}
           <div className="space-y-8">
-            <WeatherWidget />
+            <ReliableWeatherWidget />
             <MarketSummary />
           </div>
         </div>

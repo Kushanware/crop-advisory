@@ -1,24 +1,25 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Upload, Camera, X, Loader2 } from "lucide-react"
+import { Upload, Camera, X, Loader2, AlertCircle } from "lucide-react"
 import Image from "next/image"
 
 interface ImageUploadProps {
   onImageSelect: (file: File) => void
-  onAnalyze: () => void
+  onAnalyze: () => Promise<void>
   isAnalyzing: boolean
   selectedImage: File | null
+  error?: string | null
 }
 
-export function ImageUpload({ onImageSelect, onAnalyze, isAnalyzing, selectedImage }: ImageUploadProps) {
+export function ImageUpload({ onImageSelect, onAnalyze, isAnalyzing, selectedImage, error }: ImageUploadProps) {
   const [dragActive, setDragActive] = useState(false)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
@@ -44,11 +45,23 @@ export function ImageUpload({ onImageSelect, onAnalyze, isAnalyzing, selectedIma
   }
 
   const handleFileSelect = (file: File) => {
-    if (file && file.type.startsWith("image/")) {
-      onImageSelect(file)
-      const url = URL.createObjectURL(file)
-      setPreviewUrl(url)
+    setUploadError(null)
+    
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please select a valid image file")
+      return
     }
+    
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Image size should be less than 5MB")
+      return
+    }
+    
+    onImageSelect(file)
+    const url = URL.createObjectURL(file)
+    setPreviewUrl(url)
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,6 +80,16 @@ export function ImageUpload({ onImageSelect, onAnalyze, isAnalyzing, selectedIma
 
   return (
     <div className="space-y-4">
+      {/* Error Display */}
+      {(uploadError || error) && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {uploadError || error}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {!previewUrl ? (
         <Card
           className={`border-2 border-dashed transition-colors ${
